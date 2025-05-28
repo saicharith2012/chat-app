@@ -1,36 +1,66 @@
+// What the user can send
+// Join a room
+// {
+//    "type": "join",
+//    "payload": {
+//      "roomId": "123"
+//    }
+// }
+// ​
+// Send a message
+// {
+// 	"type": "chat",
+// 	"payload": {
+// 		"message: "hi there"
+// 	}
+// }
+
+// What the server can send/User receives
+// Message
+// {
+// 	"type": "chat",
+// 	"payload": {
+// 		"message": "hi there"
+// 	}
+// }
+
 import { WebSocketServer, WebSocket } from "ws";
+
+interface CustomWebSocket extends WebSocket {
+  currentRoomId?: string;
+}
 
 const wss = new WebSocketServer({ port: 8080 });
 
-let userCount = 0;
-
-let allSockets: WebSocket[] = [];
+// segregating sockets into separate rooms.
+let allSockets: Record<string, CustomWebSocket[]> = {};
 
 // new socket gets created for every new connection.
-wss.on("connection", (socket) => {
-  allSockets.push(socket);
-  userCount++;
-  const currentUser = userCount;
-  console.log(`user #${userCount} connected.`);
-
+wss.on("connection", (socket: CustomWebSocket) => {
   socket.on("error", console.error);
 
-  socket.on("message", (data) => {
-    console.log(`Received from user ${currentUser}: ${data} `);
-    setTimeout(() => {
-      console.log(allSockets.length)
-      // broadcasting to all the clients
-      allSockets.forEach((socket) => {
-        socket.send(`${data} : received from the server.`);
+  socket.on("message", (message) => {
+    const parsedMessage = JSON.parse(message.toString());
+
+    // joining a room - add the new socket to a new room
+    if (parsedMessage.type === "join") {
+      const roomId = parsedMessage.payload.roomId;
+      socket.currentRoomId = roomId;
+
+      !allSockets[roomId] && (allSockets[roomId] = []);
+      allSockets[roomId].push(socket);
+      // console.log(allSockets);
+    }
+
+    // sending a message - send the message to all sockets of the room
+    if (parsedMessage.type === "chat") {
+      if (!socket.currentRoomId) {
+        return;
+      }
+
+      allSockets[socket.currentRoomId].forEach((s) => {
+        s.send(parsedMessage.payload.message);
       });
-    }, 1000);
+    }
   });
-
-
-  socket.on("close", () => {
-    allSockets = allSockets.filter(s => s != socket)
-    console.log(allSockets.length)
-  })
-
-  socket.send("Welcome to the chat...");
 });
