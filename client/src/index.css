@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+@theme {
+    --color-ultra-violet-500: #5E6182;
+    --color-ultra-violet-600: #545775;
+    --color-english-violet-600: #45475F;
+    --color-dun-300: #DBCFB0
+}
